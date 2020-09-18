@@ -1,0 +1,371 @@
+---
+title: "UN SDG"
+output: html_notebook
+---
+# 1.0 Introduction
+
+
+# 2.0 Packages
+
+```{r}
+library(ggplot2)
+library(factoextra)
+library(dplyr)
+library(ggpubr)
+#library(car) 
+library(randomForest)
+library(lubridate)
+library(class)
+library(caret)
+#library(LiblineaR)
+library(plotly)
+library(ggplot2)
+#library(ggmap)
+library(readr)
+library(magrittr)
+library(dplyr)
+library(reshape2)
+library(stringr)
+library(tidyr)
+library(magrittr)
+library(testthat)
+#library(assertive,warn.conflicts=FALSE)
+```
+
+```{r}
+#install.packages("ggsignif",type="win.binary")
+#install.packages("ggpubr",type="win.binary")
+#library(ggpubr)
+```
+
+
+
+```{r}
+
+if (!require("ggpubr")) {
+   install.packages("ggpubr")
+   library(ggpubr)
+}
+
+if (!require("factoextra")) {
+   install.packages("factoextra")
+   library(factoextra)
+}
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("tidyverse")) {
+   install.packages("tidyverse")
+   library(tidyverse)
+}
+if (!require("readr")) {
+   install.packages("readr")
+   library(readr)
+}
+if (!require("dplyr")) {
+   install.packages("dplyr")
+   library(dplyr)
+}
+if (!require("plotly")) {
+   install.packages("plotly")
+   library(plotly)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("corrplot")) {
+   install.packages("corrplot")
+   library(corrplot)
+}
+if (!require("factoextra")) {
+   install.packages("factoextra")
+   library(factoextra)
+}
+if (!require("kableExtra")) {
+   install.packages("kableExtra")
+   library(kableExtra)
+}
+if (!require("caTools")) {
+   install.packages("caTools")
+   library(caTools)
+}
+if (!require("randomForest")) {
+   install.packages("randomForest")
+   library(randomForest)
+}
+if (!require("tm")) {
+   install.packages("tm")
+   library(tm)
+}
+if (!require("SnowballC")) {
+   install.packages("SnowballC")
+   library(SnowballC)
+}
+if (!require("RColorBrewer")) {
+   install.packages("RColorBrewer")
+   library(RColorBrewer)
+}
+
+```
+
+
+# 3.0 Reading and Cleaning
+
+
+```{r}
+SDG_Chores<-read.csv("C:/Users/JHicks/Documents/R/UN_SDG/SDG_Chores.csv")
+```
+
+```{r}
+colnames(SDG_Chores)[1]<-"id"
+SDG_Chores_ID<-SDG_Chores$id
+#The following names are dropped due to redundancy. Most of them are static values
+drop_names<-c("goal_code","goal_labelEN","goal_descEN","target_code","target_descEN","indicator_code","indicator_reference","indicator_descEN","series_release","series_tags","series","type","seriesDescription","Sources","footnotes","valueDetails","geoInfoUrl","timeDetails","Country_Profile","id")
+
+SDG_Chores<-SDG_Chores[,!(names(SDG_Chores) %in%drop_names)]
+
+```
+
+
+```{r}
+num<-unlist(lapply(SDG_Chores,is.numeric))#isolate numeric values
+SDG_Chores_Numeric<-SDG_Chores[,num]
+
+#add variables that can be used in model construction or analysis, and convert them to numeric values if necessary
+SDG_Chores_Numeric[["age_code"]]<-SDG_Chores$age_code
+SDG_Chores_Numeric[["parentCode"]]<-SDG_Chores$parentCode
+SDG_Chores_Numeric[["age_code"]]<-as.numeric(SDG_Chores_Numeric$age_code)
+SDG_Chores_Numeric[["location_desc"]]<-as.numeric(SDG_Chores$location_desc)
+SDG_Chores_Numeric[["sex_code"]]<-as.numeric(SDG_Chores$sex_code)
+
+```
+
+```{r}
+
+# remove the numeric year values and store them for future use. These colunms are too sparse for usage in PCA/RF
+year_names<-c("value_2000","value_2001","value_2002","value_2003","value_2004","value_2005","value_2006","value_2007","value_2008","value_2009","value_2010","value_2011","value_2012","value_2013","value_2014","value_2015","value_2016","value_2017","value_2018")
+SDG_Chores_Numeric_no_year<-SDG_Chores_Numeric[,!(names(SDG_Chores_Numeric) %in%year_names)]
+SDG_Chores_Year_Values<-SDG_Chores_Numeric<-SDG_Chores_Numeric[,(names(SDG_Chores_Numeric) %in%year_names)]
+```
+
+
+
+# 4.0 PCA Clustering
+
+
+## 4.1 PCA
+
+```{r}
+SDG_Chore_PCA<-prcomp(SDG_Chores_Numeric_no_year)
+summary(SDG_Chore_PCA)#PC1+2 is ~94.4%
+```
+
+```{r}
+SDG_Chore_PCA$rotation[,1:2]#botttom 3 are highest impact
+```
+
+
+
+```{r}
+#all of the samples projected onto PC1,PC2 colored by the sex designation
+Legend<-as.factor(SDG_Chores$sex_desc)
+p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
+p1+ ggtitle("PCA - Sex ") +
+  xlab("PC1") + ylab("PC2")
+```
+
+```{r}
+#all of the samples projected onto PC1,PC2 colored by development (urban/rural/both)
+Legend<-as.factor(SDG_Chores$location_desc)
+p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
+p1+ ggtitle("PCA - Dveloped") +
+  xlab("PC1") + ylab("PC2")
+```
+
+```{r}
+#all of the samples projected onto PC1,PC2 colored by the parent region
+Legend<-as.factor(SDG_Chores$parentName)
+p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
+p1+ ggtitle("PCA - Location") +
+  xlab("PC1") + ylab("PC2")
+```
+
+
+
+
+## k-means & PCA
+
+
+```{r}
+#k - means on the principal components with 2 clusters
+var<-get_pca_var(SDG_Chore_PCA)
+vertical_km<-kmeans(var$coord,centers=2,nstart=50)#k means with 2 clusters, 50 starts
+clust<-as.factor(vertical_km$cluster)
+fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means clusters of PCA - 2 Clusters")
+```
+```{r}
+#k - means on the principal components with 3 clusters
+vertical_km<-kmeans(var$coord,centers=3,nstart=50)
+clust<-as.factor(vertical_km$cluster)
+fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means clusters of PCA - 3 Clusters")
+```
+
+# 5.0 Modeling
+## 5.1 Model Data Preparation
+
+```{r}
+summary(SDG_Chores$latest_value)
+```
+
+
+```{r}
+#converting the latest percentage into categorical variables for easier clustering. The highest observed value is 42% 
+
+#these values can be tweaked for better performance 
+# 1 -> 0-9.999%
+# 2 -> 10-19.999%
+# 3 -> 20-29.999% etc
+
+response_5<-SDG_Chores_Numeric_no_year$latest_value
+for (i in 1:length(response_5)){
+  if (response_5[i]>=0 &response_5[i]<10)
+    response_5[i]<-as.numeric(1)
+  if (response_5[i]>=10 &response_5[i]<20)
+    response_5[i]<-as.numeric(2)
+  if (response_5[i]>=20 &response_5[i]<30)
+    response_5[i]<-as.numeric(3)
+  if (response_5[i]>=30 &response_5[i]<40)
+    response_5[i]<-as.numeric(4)
+  if (response_5[i]>=40 &response_5[i]<100)
+    response_5[i]<-as.numeric(5)
+}
+SDG_Chores_Numeric_no_year[["response_5"]]<-as.factor(response_5)
+Latest_Value_Copy<-SDG_Chores_Numeric_no_year$latest_value#copy the latest values for future usage
+SDG_Chores_Numeric_no_year<-SDG_Chores_Numeric_no_year[, -which(names(SDG_Chores_Numeric_no_year) %in% c("latest_value"))]
+
+```
+
+```{r}
+#isolating data for the random forest / NN
+
+SDG_Chores_Numeric_no_year[["id"]]<-SDG_Chores_ID
+ss<-as.integer(.8*nrow(SDG_Chores_Numeric_no_year))# 80% training / 20% testing
+value<-sample(1:nrow(SDG_Chores_Numeric_no_year),ss)
+traindata<-SDG_Chores_Numeric_no_year[value,]
+testdata<-SDG_Chores_Numeric_no_year[-value,]
+trainID<-traindata$id
+testID<-testdata$id
+traindata<-traindata[, -which(names(traindata) %in% c("id"))]
+testdata<-testdata[, -which(names(testdata) %in% c("id"))]
+```
+
+
+
+
+## 5.2 Random Forest
+
+
+### Latest Percentage Response
+
+#### Random Forest Training
+```{r,echo=FALSE}
+attach(traindata)
+randFor<-randomForest::randomForest(response_5~.,data=traindata)
+```
+
+```{r}
+print(randFor)
+```
+
+```{r}
+plot(randFor,main="Random Forest Error - Latest Value Percentage Category")
+```
+
+```{r}
+randomForest::varImpPlot(randFor,sort=T,n.var=10,main="Variable Importance - Classifying Latest Value Percentage")
+```
+#### Random Forest Testing
+
+```{r}
+fortable<-table(predict(randFor,testdata),as.factor(testdata$response_5))
+tmp<-diag(prop.table(fortable,1))
+#printing testing statistics
+cat("\nPercentage Correct in Testing\n\tCategory 1:\t",round(tmp[1]*100,2),"\n\tCategory 2:\t",round(tmp[2]*100,2),"\n\tCategory 3:\t",round(tmp[3]*100,2),"\n\tCategory 4:\t",round(tmp[4]*100,2),"\n\tCategory 5:\t",round(tmp[5]*100,2),"\n\tAverage:\t",round(sum(diag(prop.table(fortable)))*100,2))
+```
+
+
+```{r}
+cat("\n","\nConfusion Matrix:\n")
+fortable
+```
+
+### Parent Code Response
+
+```{r}
+#response variable of the parent region name instead of the % of work
+Latest_Value_Copy<-SDG_Chores_Numeric_no_year$latest_value
+SDG_Chores_Parent_RF<-SDG_Chores_Numeric_no_year
+SDG_Chores_Parent_RF[["latest_value"]]<-Latest_Value_Copy
+SDG_Chores_Parent_RF[["response_region"]]<-as.factor(SDG_Chores$parentName)
+SDG_Chores_Parent_RF<-SDG_Chores_Parent_RF[, -which(names(SDG_Chores_Parent_RF) %in% c("geoAreaCode","parentCode","response_5","parentName","X","Y","location_desc"))]
+```
+
+```{r}
+ss2<-as.integer(.8*nrow(SDG_Chores_Parent_RF))# 80 / 20 
+value2<-sample(1:nrow(SDG_Chores_Parent_RF),ss2)
+traindata2<-SDG_Chores_Parent_RF[value2,]
+testdata2<-SDG_Chores_Parent_RF[-value2,]
+trainID2<-traindata2$id
+testID2<-testdata2$id
+traindata2<-traindata2[, -which(names(traindata2) %in% c("id"))]
+testdata2<-testdata2[, -which(names(testdata2) %in% c("id"))]
+```
+
+#### RF Training
+
+```{r,echo=FALSE}
+attach(traindata2)
+randFor2<-randomForest::randomForest(response_region~.,data=traindata2)
+```
+
+```{r}
+print(randFor2)
+```
+
+```{r}
+plot(randFor2,main="Random Forest Error - Region Category")
+```
+
+```{r}
+randomForest::varImpPlot(randFor2,sort=T,n.var=7,main="Variable Importance - Classifying Region")
+```
+
+
+#### RF Testing
+
+```{r}
+unique(SDG_Chores$parentName)
+```
+
+
+```{r}
+fortable2<-table(predict(randFor2,testdata2),as.factor(testdata2$response_region))
+table2_names<-row.names(fortable2)
+tmp<-diag(prop.table(fortable2,1))
+
+
+cat("\nPercentage Correct in Testing\n\t",table2_names[1],":\t",round(tmp[1]*100,2),"\n\t",table2_names[2],":\t",round(tmp[2]*100,2),"\n\t",table2_names[3],":\t",round(tmp[3]*100,2),"\n\t",table2_names[4],":\t",round(tmp[4]*100,2),"\n\t",table2_names[5],":\t",round(tmp[5]*100,2),"\n\t ",table2_names[6],":\t",round(tmp[6]*100,2),"\n\t",table2_names[7],":\t",round(tmp[7]*100,2),"\n\t",table2_names[8],":\t",round(tmp[8]*100,2),"\n\t",table2_names[9],":\t",round(tmp[9]*100,2),"\n\t",table2_names[10],":\t",round(tmp[10]*100,2),"\n\t",table2_names[11],":\t",round(tmp[11]*100,2),"\n\t",table2_names[12],":\t",round(tmp[12]*100,2),"\n\t",table2_names[13],":\t",round(tmp[13]*100,2),"\n\t",table2_names[14],":\t",round(tmp[14]*100,2),"\n\t",table2_names[15],":\t",round(tmp[15]*100,2),"\n\t",table2_names[16],":\t",round(tmp[16]*100,2),"\n\t",table2_names[17],":\t",round(tmp[17]*100,2),"\n\t",table2_names[18],":\t",round(tmp[18]*100,2),"\n\t",table2_names[19],":\t",round(tmp[19]*100,2),"\n\t",table2_names[20],":\t",round(tmp[20]*100,2),"\n\tAverage:\t",round(sum(diag(prop.table(fortable)))*100,2))
+```
+
+
+
+# Neural Network
+
+
+
+```{r}
+
+```
+
