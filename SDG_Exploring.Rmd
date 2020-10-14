@@ -31,6 +31,7 @@ Executing of this R notebook requires some subset of the following packages:
 * `car`
 * `caret`
 * `class`
+* `countrycode`
 * `corrplot`
 * `dplyr`
 * `dplot`
@@ -83,6 +84,7 @@ library(testthat)
 library(plyr)
 library(rworldmap)
 #library(assertive,warn.conflicts=FALSE)
+library(countrycode)
 ```
 
 ```{r,include=FALSE,echo=FALSE}
@@ -94,6 +96,10 @@ library(rworldmap)
 
 
 ```{r,include=FALSE,echo=FALSE}
+if (!require("countrycode")) {
+   install.packages("countrycode")
+   library(countrycode)
+}
 if (!require("rworldmap")) {
    install.packages("rworldmap")
    library(rworldmap)
@@ -193,7 +199,7 @@ The chunk below reads in the data
 
 ```{r}
 SDG_Chores<-read.csv("C:/Users/JHicks/Documents/R/UN_SDG/SDG_Chores.csv")
-SDG_Divorce<-read.csv("C:/Users/JHicks/Documents/R/UN_SDG/SDG_Divorce.csv")
+UN_Divorce<-read.csv("C:/Users/JHicks/Documents/R/UN_SDG/Un_Crude_Divorce_csv.csv")
 ```
 
 ## Cleaning
@@ -263,6 +269,30 @@ The chunk below displays the magnitude of the eigenvectors which convey the vari
 SDG_Chore_PCA$rotation[,1:2]#botttom 3 are highest impact
 ```
 
+### PCA & Latest Percentage
+
+```{r}
+#all of the samples projected onto PC1,PC2 colored by development (urban/rural/both)
+colorScale<-brewer.pal(5,'RdPu')
+Legend<-SDG_Chores$latest_value
+p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
+p1+ ggtitle("UN Subpopulations Denoted by Latest Percentage of Time Spent") +
+  xlab("PC1") + ylab("PC2")+scale_color_gradientn(colours = rainbow(4))
+```
+
+
+### PCA & Age
+
+```{r}
+#all of the samples projected onto PC1,PC2 colored by development (urban/rural/both)
+Legend<-as.factor(SDG_Chores$age_desc)
+p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
+p1+ ggtitle("UN Subpopulations Denoted by Reported Age Categories") +
+  xlab("PC1") + ylab("PC2")
+```
+
+
+
 ### PCA & Biological Sex
 
 The chunk below plots the samples onto space spanned by the first two principal components, and colors them by biological sex.
@@ -271,7 +301,7 @@ The chunk below plots the samples onto space spanned by the first two principal 
 #all of the samples projected onto PC1,PC2 colored by the sex designation
 Legend<-as.factor(SDG_Chores$sex_desc)
 p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
-p1+ ggtitle("Subpopulation denoted by Biological Sex") +
+p1+ ggtitle("UN Subpopulations Denoted by Biological Sex") +
   xlab("PC1") + ylab("PC2")
 ```
 
@@ -284,7 +314,7 @@ The chunk below plots the samples onto space spanned by the first two principal 
 #all of the samples projected onto PC1,PC2 colored by development (urban/rural/both)
 Legend<-as.factor(SDG_Chores$location_desc)
 p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
-p1+ ggtitle("Subpopulation denoted by developed areas") +
+p1+ ggtitle("UN Subpopulations Denoted by Location Description") +
   xlab("PC1") + ylab("PC2")
 ```
 
@@ -327,7 +357,7 @@ The chunk below plots the samples onto space spanned by the first two principal 
 #all of the samples projected onto PC1,PC2 colored by the parent region
 Legend<-as.factor(SDG_Chores$parentName)
 p1<-ggplot(SDG_Chores_Numeric_no_year,aes(x=SDG_Chore_PCA$x[,1],y=SDG_Chore_PCA$x[,2],colour=Legend))+geom_point(size=2)
-p1+ ggtitle("Subpopulation denoted by Continent") +
+p1+ ggtitle("UN Subpopulations Denoted by Parent Region") +
   xlab("PC1") + ylab("PC2")
 ```
 
@@ -348,7 +378,7 @@ set.seed(6432)
 var<-get_pca_var(SDG_Chore_PCA)
 vertical_km<-kmeans(var$coord,centers=2,nstart=50)#k means with 2 clusters, 50 starts
 clust<-as.factor(vertical_km$cluster)
-fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means clusters of PCA - 2 Clusters")
+fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means of PCA Variables - 2 Clusters")
 ```
 
 ### 3 Clusters
@@ -359,7 +389,7 @@ The chunk below executes the k-means algorithm with 3 clusters and plots the var
 #k - means on the principal components with 3 clusters
 vertical_km<-kmeans(var$coord,centers=3,nstart=50)
 clust<-as.factor(vertical_km$cluster)
-fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means clusters of PCA - 3 Clusters")
+fviz_pca_var(SDG_Chore_PCA,col.var=clust,palette=c("red", "blue", "green"),legend.title="Legend",repel=TRUE,title="K Means of PCA Variables - 3 Clusters")
 ```
 
 # Modeling
@@ -372,24 +402,24 @@ In this section a response variable is created that reflects 10% per category. A
 
 ```{r}
 #converting the latest percentage into categorical variables for easier clustering. 
-# 1 = 0-9.999%
-# 2 = 10-19.999%
-# 3 = 20-29.999% etc
-
+#these values were chosen based on the distribution. there are only 9 samples above 30%
+# 1 = 0-5.9999%
+# 2 = 6-11.999% etc
 response_5<-SDG_Chores_Numeric_no_year$latest_value
+response_5_new<-as.character(SDG_Chores_Numeric_no_year$latest_value)
 for (i in 1:length(response_5)){
-  if (response_5[i]>=0 &response_5[i]<10)
-    response_5[i]<-as.numeric(1)
-  if (response_5[i]>=10 &response_5[i]<20)
-    response_5[i]<-as.numeric(2)
-  if (response_5[i]>=20 &response_5[i]<30)
-    response_5[i]<-as.numeric(3)
-  if (response_5[i]>=30 &response_5[i]<40)
-    response_5[i]<-as.numeric(4)
-  if (response_5[i]>=40 &response_5[i]<100)
-    response_5[i]<-as.numeric(5)
+  if (response_5[i]>=0 &response_5[i]<6)
+    response_5_new[i]<-as.character("A")
+  if (response_5[i]>=6 &response_5[i]<12)
+    response_5_new[i]<-as.character("B")
+  if (response_5[i]>=12 &response_5[i]<18)
+    response_5_new[i]<-as.character("C")
+  if (response_5[i]>=18 &response_5[i]<24)
+    response_5_new[i]<-as.character("D")
+  if (response_5[i]>=24 &response_5[i]<100)
+    response_5_new[i]<-as.character("E")
 }
-SDG_Chores_Numeric_no_year[["response_5"]]<-as.factor(response_5)
+SDG_Chores_Numeric_no_year[["response_5"]]<-as.factor(response_5_new)
 Latest_Value_Copy<-SDG_Chores_Numeric_no_year$latest_value#copy the latest values for future usage
 SDG_Chores_Numeric_no_year<-SDG_Chores_Numeric_no_year[, -which(names(SDG_Chores_Numeric_no_year) %in% c("latest_value"))]
 
@@ -422,7 +452,7 @@ This section contains all random forest models.
 The chunk below creates a random forest from the training data.
 
 #### Random Forest Training
-```{r,echo=FALSE}
+```{r,echo=FALSE,results=FALSE}
 attach(traindata)
 randFor<-randomForest::randomForest(response_5~.,data=traindata)
 ```
@@ -436,13 +466,19 @@ print(randFor)
 The chunk below prints the change in the cumulative error rate as more decision trees are generated. 
 
 ```{r}
-plot(randFor,main="Random Forest Error - Latest Value Percentage Category")
+
+layout(matrix(c(1,2),nrow=1),width=c(4,1)) 
+plot(randFor,main="Random Forest Error: Latest Value Percentage Category")
+par(mar=c(4,0,4,1)) #L
+plot(c(.5,1),type="n", axes=F, xlab="", ylab="")
+legend("top",colnames(randFor$err.rate),col=1:5,cex=.9,fill = 1:5)
 ```
 
-The chunk below displays the top variables used to improve the model performance.
+The chunk below displays the top variables used to improve the model performance. Note the custom variable names. if any changes are made to the random forest model these labels may not be valid anymore.
 
 ```{r}
-randomForest::varImpPlot(randFor,sort=T,n.var=10,main="Variable Importance - Classifying Latest Value Percentage")
+#,labels=rep("random variable name",5)
+randomForest::varImpPlot(randFor,sort=T,n.var=10,main="Variable Importance - Classifying Latest Value Percentage",labels=rep(c("Years of Data","Location Description","Maximum Year","Parent Region","Minimum Year","Geographic Area","X","Y","Age Category","Sex")))
 ```
 #### Random Forest Testing
 
@@ -452,7 +488,7 @@ The chunk below prints the percentage correct in testing for the random forest m
 fortable<-table(predict(randFor,testdata),as.factor(testdata$response_5))
 tmp<-diag(prop.table(fortable,1))
 #printing testing statistics
-cat("\nPercentage Correct in Testing\n\tCategory 1:\t",round(tmp[1]*100,2),"\n\tCategory 2:\t",round(tmp[2]*100,2),"\n\tCategory 3:\t",round(tmp[3]*100,2),"\n\tCategory 4:\t",round(tmp[4]*100,2),"\n\tCategory 5:\t",round(tmp[5]*100,2),"\n\tAverage:\t",round(sum(diag(prop.table(fortable)))*100,2))
+cat("\nError Rate in Testing\n\tCategory 1:\t",100-round(tmp[1]*100,2),"\n\tCategory 2:\t",100-round(tmp[2]*100,2),"\n\tCategory 3:\t",100-round(tmp[3]*100,2),"\n\tCategory 4:\t",100-round(tmp[4]*100,2),"\n\tCategory 5:\t",100-round(tmp[5]*100,2),"\n\tAverage:\t",100-round(sum(diag(prop.table(fortable)))*100,2))
 ```
 
 The chunk below prints the confusion matrix for the testing set of the random forest model.
@@ -491,7 +527,7 @@ testdata2<-testdata2[, -which(names(testdata2) %in% c("id"))]
 #### Random Forest Training
 
 
-```{r,echo=FALSE}
+```{r,echo=FALSE,results=FALSE}
 
 attach(traindata2)
 randFor2<-randomForest::randomForest(response_region~.,data=traindata2)
@@ -502,11 +538,17 @@ print(randFor2)
 ```
 
 ```{r}
-plot(randFor2,main="Random Forest Error - Region Category")
+#layout(matrix(c(1,2),nrow=1),width=c(4,1)) 
+plot(randFor2,main="Random Forest Error: Region Category")
+#par(mar=c(4,0,4,1)) #L
+#plot(c(.5,1),type="n", axes=F, xlab="", ylab="")
+#legend("top",colnames(randFor2$err.rate),col=1:5,cex=.9,fill = 1:5)
+#there are too many categories for a label to be done quickly here - would require remaking the plot with gg
 ```
 
 ```{r}
-randomForest::varImpPlot(randFor2,sort=T,n.var=7,main="Variable Importance - Classifying Region")
+randomForest::varImpPlot(randFor2,sort=T,n.var=7,main="Variable Importance - Classifying Region",labels=rep(c(
+  "Sex","UN Member Status","Age Category","Years of Data","level_","Maximum Year","Minimum Year")))
 ```
 
 
@@ -519,16 +561,16 @@ table2_names<-row.names(fortable2)
 tmp<-diag(prop.table(fortable2,1))
 
 
-cat("\nPercentage Correct in Testing\n\t",table2_names[1],":\t",round(tmp[1]*100,2),"\n\t",table2_names[2],":\t",round(tmp[2]*100,2),"\n\t",table2_names[3],":\t",round(tmp[3]*100,2),"\n\t",table2_names[4],":\t",round(tmp[4]*100,2),"\n\t",table2_names[5],":\t",round(tmp[5]*100,2),"\n\t ",table2_names[6],":\t",round(tmp[6]*100,2),"\n\t",table2_names[7],":\t",round(tmp[7]*100,2),"\n\t",table2_names[8],":\t",round(tmp[8]*100,2),"\n\t",table2_names[9],":\t",round(tmp[9]*100,2),"\n\t",table2_names[10],":\t",round(tmp[10]*100,2),"\n\t",table2_names[11],":\t",round(tmp[11]*100,2),"\n\t",table2_names[12],":\t",round(tmp[12]*100,2),"\n\t",table2_names[13],":\t",round(tmp[13]*100,2),"\n\t",table2_names[14],":\t",round(tmp[14]*100,2),"\n\t",table2_names[15],":\t",round(tmp[15]*100,2),"\n\t",table2_names[16],":\t",round(tmp[16]*100,2),"\n\t",table2_names[17],":\t",round(tmp[17]*100,2),"\n\t",table2_names[18],":\t",round(tmp[18]*100,2),"\n\t",table2_names[19],":\t",round(tmp[19]*100,2),"\n\t",table2_names[20],":\t",round(tmp[20]*100,2),"\n\tAverage:\t",round(sum(diag(prop.table(fortable)))*100,2))
+cat("\nError Rate in Testing\n\t",table2_names[1],":\t",100-round(tmp[1]*100,2),"\n\t",table2_names[2],":\t",100-round(tmp[2]*100,2),"\n\t",table2_names[3],":\t",100-round(tmp[3]*100,2),"\n\t",table2_names[4],":\t",100-round(tmp[4]*100,2),"\n\t",table2_names[5],":\t",100-round(tmp[5]*100,2),"\n\t ",table2_names[6],":\t",100-round(tmp[6]*100,2),"\n\t",table2_names[7],":\t",100-round(tmp[7]*100,2),"\n\t",table2_names[8],":\t",100-round(tmp[8]*100,2),"\n\t",table2_names[9],":\t",100-round(tmp[9]*100,2),"\n\t",table2_names[10],":\t",100-round(tmp[10]*100,2),"\n\t",table2_names[11],":\t",100-round(tmp[11]*100,2),"\n\t",table2_names[12],":\t",100-round(tmp[12]*100,2),"\n\t",table2_names[13],":\t",100-round(tmp[13]*100,2),"\n\t",table2_names[14],":\t",100-round(tmp[14]*100,2),"\n\t",table2_names[15],":\t",100-round(tmp[15]*100,2),"\n\t",table2_names[16],":\t",100-round(tmp[16]*100,2),"\n\t",table2_names[17],":\t",100-round(tmp[17]*100,2),"\n\t",table2_names[18],":\t",100-round(tmp[18]*100,2),"\n\t",table2_names[19],":\t",100-round(tmp[19]*100,2),"\n\t",table2_names[20],":\t",100-round(tmp[20]*100,2),"\n\tAverage:\t",100-round(sum(diag(prop.table(fortable)))*100,2))
 ```
 
 
 
-## 5.3 Neural Network
+## Neural Network
 
 ### Latest Percentage Response
 
-```{r,echo=FALSE}
+```{r,echo=FALSE,results=FALSE}
 trainc<-trainControl(method="repeatedcv",number=10,repeats=3)
 NN_5<-train(response_5~.,data=traindata,method="nnet",tuneLength=10,trainControl=trainc)
 ```
@@ -545,7 +587,7 @@ cat("Percentage Correct in Testing: ",sum(diag(prop.table(NN_5_table))))#overall
 
 ### Parent Code Response
 
-```{r,echo=FALSE}
+```{r,echo=FALSE,results=FALSE,message=FALSE,}
 NN_region<-train(response_region~.,data=traindata2,method="nnet",tuneLength=10,trainControl=trainc)
 ```
 
@@ -571,14 +613,13 @@ country_chores<-SDG_Chores[,(names(SDG_Chores) %in%plot_colunms)]
 
 ```{r}
 earth<-ne_countries(scale="medium",returnclass ="sf")
-colorScale<-brewer.pal(5,'RdPu')
 ```
 
 
 ```{r}
 country_chores_rural_m<-country_chores%>%filter(location_desc=="Rural",sex_code=="M")
 country_chores_rural_m<-country_chores_rural_m[,-3]#drop the sex colunm as the values are static
-country_chores_rural_m<-aggregate(country_chores_rural_m[,3],list(country_chores_rural_m$ISO3),mean)
+country_chores_rural_m<-aggregate(country_chores_rural_m[,3],list(country_chores_rural_m$ISO3),mean)#mean because of the different age groups
 
 country_chores_rural_f<-country_chores%>%filter(location_desc=="Rural",sex_code=="F")
 country_chores_rural_f<-country_chores_rural_f[,-3]
@@ -606,7 +647,7 @@ country_chores_all_f<-aggregate(country_chores_all_f[,3],list(country_chores_all
 ```
 
 
-```{r}
+```{r,results=FALSE,echo=FALSE}
 chores_rural_m_map<-joinCountryData2Map(country_chores_rural_m, joinCode="ISO3", nameJoinColumn="Group.1")
 chores_rural_f_map<-joinCountryData2Map(country_chores_rural_f, joinCode="ISO3", nameJoinColumn="Group.1")
 
@@ -616,22 +657,47 @@ chores_urban_f_map<-joinCountryData2Map(country_chores_urban_f, joinCode="ISO3",
 chores_all_m_map<-joinCountryData2Map(country_chores_all_m, joinCode="ISO3", nameJoinColumn="Group.1")
 chores_all_f_map<-joinCountryData2Map(country_chores_all_f, joinCode="ISO3", nameJoinColumn="Group.1")
 ```
+## Statistics
 
+```{r}
+#statistics rural m
+
+
+summary(chores_rural_m_map$x)
+```
+
+```{r}
+#statistics Urban m
+
+summary(chores_urban_m_map$x)
+```
+
+
+
+```{r}
+#statistics Rural F
+
+summary(chores_rural_f_map$x)
+```
+
+
+```{r}
+#statistics Urban F
+
+summary(chores_urban_f_map$x)
+```
 
 ## World plots 
 
 
 ### Rural
 
+
 ```{r}
 #rural M
-
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
-
-map_variables_r_m<-mapCountryData(chores_rural_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Rural Male Population", borderCol ="black",colourPalette = colorScale)
+colorScale_r<-brewer.pal(9,"Reds")
+colorScale_u<-brewer.pal(11,"Blues")
+map_variables_r_m<-mapCountryData(chores_rural_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Rural Male Population", borderCol ="black",colourPalette = colorScale_r)
 
 ```
 
@@ -639,12 +705,8 @@ map_variables_r_m<-mapCountryData(chores_rural_m_map,nameColumnToPlot ="x",ocean
 ```{r}
 #rural F
 
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
 
-map_variables_r_m<-mapCountryData(chores_rural_f_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Rural Female Population", borderCol ="black",colourPalette = colorScale)
+map_variables_r_m<-mapCountryData(chores_rural_f_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Rural Female Population", borderCol ="black",colourPalette = colorScale_r)
 
 ```
 
@@ -653,24 +715,14 @@ map_variables_r_m<-mapCountryData(chores_rural_f_map,nameColumnToPlot ="x",ocean
 ```{r}
 #Urban M
 
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
 
-map_variables_r_m<-mapCountryData(chores_urban_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Urban Male Population", borderCol ="black",colourPalette = colorScale)
+map_variables_r_m<-mapCountryData(chores_urban_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Urban Male Population", borderCol ="black",colourPalette = colorScale_u)
 
 ```
 
 ```{r}
 #Urban f
-
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
-
-map_variables_r_m<-mapCountryData(chores_urban_f_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Urban Female Population", borderCol ="black",colourPalette = colorScale)
+map_variables_r_m<-mapCountryData(chores_urban_f_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Urban Female Population", borderCol ="black",colourPalette = colorScale_u)
 
 ```
 
@@ -680,24 +732,16 @@ map_variables_r_m<-mapCountryData(chores_urban_f_map,nameColumnToPlot ="x",ocean
 ```{r}
 #All M
 
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
-
-map_variables_r_m<-mapCountryData(chores_all_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Male Population", borderCol ="black",colourPalette = colorScale)
+colorScale_a<-brewer.pal(9,"Greens")
+map_variables_r_m<-mapCountryData(chores_all_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Male Population", borderCol ="black",colourPalette = colorScale_a)
 
 ```
 
 ```{r}
 #All F
 
-ggplot(data = earth) +
-    geom_sf(aes(fill=pop_est)) +xlab("Longitude") + ylab("Latitude") +
-    ggtitle("World map")+
-    scale_fill_viridis_c(option = "plasma", trans = "sqrt")
 
-map_variables_r_m<-mapCountryData(chores_all_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Female Population", borderCol ="black",colourPalette = colorScale)
+map_variables_r_m<-mapCountryData(chores_all_m_map,nameColumnToPlot ="x",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Percentage of Time spent on Domestic work - Female Population", borderCol ="black",colourPalette = colorScale_a)
 
 ```
 
@@ -707,18 +751,33 @@ map_variables_r_m<-mapCountryData(chores_all_m_map,nameColumnToPlot ="x",oceanCo
 
 ## Data Isolation
 
-```{r}
-SDG_Divorce_filter<-SDG_Divorce%>%filter(Reliability=="Final figure, complete")
-divorce_keep_colunms<-c("Country.or.Area","Year","Area","Value")
-SDG_Divorce_filter<-SDG_Divorce_filter[,names(SDG_Divorce_filter)%in%divorce_keep_colunms]
-SDG_Divorce_filter[["ISO3"]]<-
+This chunk primarily removes the headers and data from prior to before the year 2000
 
+```{r}
+UN_Divorce_clean<-UN_Divorce[-1,]
+colnames(UN_Divorce_clean)[1]<-"Country"
+colnames(UN_Divorce_clean)[2]<-"ISO_Code"
+colnames(UN_Divorce_clean)[15]<-"Latest_Year"
+colnames(UN_Divorce_clean)[16]<-"CDR"
+UN_Divorce_clean<-UN_Divorce_clean[-1,]#white space and colnum information
+UN_Divorce_clean<-UN_Divorce_clean[-1,]
+UN_Divorce_clean<-UN_Divorce_clean[-1,]
 ```
 
-## World Plots
+```{r,echo=FALSE,results=FALSE}
+divorce_keep_colunms<-c("ISO_Code","CDR")
+country_divorce_all<-UN_Divorce_clean[,names(UN_Divorce_clean)%in%divorce_keep_colunms]
+country_divorce_all$CDR<-as.numeric(levels(country_divorce_all$CDR))[country_divorce_all$CDR]
+country_divorce_all$ISO_Code<-countrycode(country_divorce_all$ISO_Code,origin='genc3n',destination='iso3c')
+UN_Divorce_map_data<-joinCountryData2Map(country_divorce_all, joinCode="ISO3", nameJoinColumn="ISO_Code")
+```
 
-### Rural
 
-### Urban
+## World Plot
 
-### All Areas
+```{r}
+colorScale_divorce<-brewer.pal(10,"YlGnBu")
+map_variables_r_m<-mapCountryData(UN_Divorce_map_data,nameColumnToPlot ="CDR",oceanCol = "azure1",catMethod = "pretty",missingCountryCol = gray(.7),addLegend = T,mapTitle = "Worldwide Crude Divorce Rate - UN Statistics 2007", borderCol ="black",colourPalette = colorScale_divorce)
+```
+
+
